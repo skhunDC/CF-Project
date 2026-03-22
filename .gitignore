@@ -1,0 +1,11 @@
+node_modules
+.dist
+wrangler.toml
+.wrangler
+.dev.vars
+.env
+.env.*
+dist
+coverage
+*.sqlite*
+.DS_Store
