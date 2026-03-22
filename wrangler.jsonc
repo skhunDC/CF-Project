@@ -30,21 +30,6 @@
       "new_sqlite_classes": ["LeaderboardRoom"]
     }
   ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "CATCH_EVENTS_QUEUE",
-        "queue": "catch-events"
-      }
-    ],
-    "consumers": [
-      {
-        "queue": "catch-events",
-        "max_batch_size": 10,
-        "max_batch_timeout": 5
-      }
-    ]
-  },
   "r2_buckets": [
     {
       "binding": "CATCH_UPLOADS",

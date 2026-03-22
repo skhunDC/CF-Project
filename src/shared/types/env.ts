@@ -18,7 +18,7 @@ export interface Env {
   ASSETS: Fetcher;
   CATCH_UPLOADS: R2Bucket;
   IMAGES: ImagesBinding;
-  CATCH_EVENTS_QUEUE: Queue;
+  CATCH_EVENTS_QUEUE?: Queue;
   LEADERBOARD_ROOM: DurableObjectNamespace;
 }
 

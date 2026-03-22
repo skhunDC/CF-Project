@@ -128,10 +128,11 @@ npm run dev:worker
    ```bash
    wrangler r2 bucket create catch-uploads
    ```
-4. Create a Queue:
+4. Optional: create a Queue if you want asynchronous catch-event processing:
    ```bash
    wrangler queues create catch-events
    ```
+   The app now falls back to inline leaderboard processing when `CATCH_EVENTS_QUEUE` is not bound, which avoids Cloudflare build failures in accounts that have not created the queue yet.
 5. Create or bind a Turnstile widget and copy the site key to `vars`, secret to a Worker secret.
 6. Set production secrets:
    ```bash
@@ -177,7 +178,7 @@ npm run dev:worker
 
 - `DB` → Cloudflare D1
 - `LEADERBOARD_ROOM` → Durable Object
-- `CATCH_EVENTS_QUEUE` → Queue producer/consumer
+- `CATCH_EVENTS_QUEUE` → Optional Queue producer/consumer for async catch-event processing
 - `CATCH_UPLOADS` → R2 bucket
 - `IMAGES` → Cloudflare Images binding
 - `ASSETS` → deployed static frontend assets
@@ -204,9 +205,10 @@ npm run dev:worker
 
 ## Queue consumer notes
 
-- Every created catch publishes a `catch.created` event.
-- The consumer loads the catch, finds eligible leagues, calls the Durable Object, and upserts `league_scores`.
-- This keeps catch logging fast while leaderboard work happens asynchronously.
+- Every created catch publishes a `catch.created` event when `CATCH_EVENTS_QUEUE` is bound.
+- If the queue binding is missing, the Worker processes the same event inline so builds and deployments can succeed before the queue exists.
+- The consumer or inline fallback loads the catch, finds eligible leagues, calls the Durable Object, and upserts `league_scores`.
+- Binding the queue keeps catch logging fast while leaderboard work happens asynchronously.
 
 ## Bite score engine notes
 

@@ -6,6 +6,7 @@ import { requireAuth } from '../../middleware/session';
 import { blurCoordinates } from '../../utils/geo';
 import { createId } from '../../utils/id';
 import { createUploadUrl, saveImageToR2 } from '../../services/uploads';
+import { processCatchEvent } from '../../services/leaderboard-room';
 import { verifyTurnstile } from '../../services/turnstile';
 
 export const catchesRoutes = new Hono<{ Bindings: Env; Variables: { user: any } }>();
@@ -114,12 +115,19 @@ catchesRoutes.post('/', requireAuth, zValidator('json', createCatchSchema), asyn
       .run();
   }
 
-  await c.env.CATCH_EVENTS_QUEUE.send({
-    type: 'catch.created',
+  const catchEvent = {
+    type: 'catch.created' as const,
     catchId,
     userId: user.id,
     createdAt: new Date().toISOString(),
-  });
+  };
+
+  if (c.env.CATCH_EVENTS_QUEUE) {
+    await c.env.CATCH_EVENTS_QUEUE.send(catchEvent);
+  } else {
+    console.warn('CATCH_EVENTS_QUEUE binding missing; processing catch event inline.');
+    await processCatchEvent(c.env, catchEvent);
+  }
 
   return c.json({ ok: true, data: { id: catchId, verificationStatus } }, 201);
 });
