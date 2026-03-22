@@ -1,22 +1,15 @@
 import app from './server/app';
-import { consumeCatchEvents } from './server/queues/catch-events';
-import { LeaderboardRoom } from './server/services/leaderboard-room';
 import type { Env } from './shared/types/env';
 
-export { LeaderboardRoom };
+const assetPattern = /\.(?:js|css|map|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$/i;
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/') || url.pathname === '/health') {
-      return app.fetch(request, env, ctx);
+    if (url.pathname.startsWith('/assets/') || assetPattern.test(url.pathname)) {
+      return env.ASSETS.fetch(request);
     }
 
-    try {
-      return await env.ASSETS.fetch(request);
-    } catch {
-      return env.ASSETS.fetch(new Request(new URL('/', request.url), request));
-    }
+    return app.fetch(request, env, ctx);
   },
-  queue: consumeCatchEvents,
 };

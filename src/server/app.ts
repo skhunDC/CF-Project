@@ -1,29 +1,88 @@
 import { Hono } from 'hono';
-import { logger } from 'hono/logger';
-import { cors } from 'hono/cors';
-import type { Env } from '../shared/types/env';
-import { sessionMiddleware } from './middleware/session';
-import { authRoutes } from './routes/auth';
-import { meRoutes } from './routes/api/me';
-import { catchesRoutes } from './routes/api/catches';
-import { feedRoutes } from './routes/api/feed';
-import { mapRoutes } from './routes/api/map';
-import { leaguesRoutes } from './routes/api/leagues';
-import { biteRoutes } from './routes/api/bite';
-import { adminRoutes } from './routes/api/admin';
+import type { AuthContext, Env } from '../shared/types/env';
+import { getAuthContext } from './auth/access';
+import { createBrief, getBriefMetrics, listBriefs, updateBriefStatus } from './data/briefs';
+import { jsonUnauthorized, renderAppShellBlocked, renderLandingPage } from './html/render';
+import { createBriefSchema, updateStatusSchema } from './validation/brief';
 
-export const app = new Hono<{ Bindings: Env; Variables: { user: any } }>();
+export type AppBindings = { Bindings: Env; Variables: { auth: AuthContext | null } };
 
-app.use('*', logger(), cors({ origin: '*', credentials: true }), sessionMiddleware);
+export const createApp = () => {
+  const app = new Hono<AppBindings>();
 
-app.get('/health', (c) => c.json({ ok: true, app: c.env.APP_NAME }));
-app.route('/auth', authRoutes);
-app.route('/api/me', meRoutes);
-app.route('/api/catches', catchesRoutes);
-app.route('/api/feed', feedRoutes);
-app.route('/api/map', mapRoutes);
-app.route('/api/leagues', leaguesRoutes);
-app.route('/api/bite', biteRoutes);
-app.route('/api/admin', adminRoutes);
+  app.use('*', async (c, next) => {
+    const auth = await getAuthContext(c.req.raw, c.env);
+    c.set('auth', auth);
+    await next();
+  });
+
+  app.get('/', (c) => c.html(renderLandingPage(c.env)));
+
+  app.get('/health', (c) => c.json({ ok: true, name: c.env.APP_NAME }));
+
+  app.get('/app', async (c) => {
+    const auth = c.get('auth');
+    if (!auth) return renderAppShellBlocked(c.env);
+
+    return c.env.ASSETS.fetch(new Request(new URL('/index.html', c.req.url).toString(), c.req.raw), {
+      headers: {
+        ...Object.fromEntries(c.req.raw.headers.entries()),
+        'x-authenticated-email': auth.normalizedEmail,
+      },
+    });
+  });
+
+  app.use('/api/*', async (c, next) => {
+    if (!c.get('auth')) {
+      return jsonUnauthorized();
+    }
+    await next();
+  });
+
+  app.get('/api/session', async (c) => {
+    const auth = c.get('auth')!;
+    const metrics = await getBriefMetrics(c.env);
+    return c.json({ ok: true, data: { auth, metrics } });
+  });
+
+  app.get('/api/briefs', async (c) => {
+    const items = await listBriefs(c.env);
+    return c.json({ ok: true, data: items });
+  });
+
+  app.post('/api/briefs', async (c) => {
+    const auth = c.get('auth')!;
+    const json = await c.req.json();
+    const parsed = createBriefSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ ok: false, error: 'validation_failed', issues: parsed.error.flatten() }, 400);
+    }
+
+    await createBrief(c.env, parsed.data, auth.normalizedEmail);
+    const items = await listBriefs(c.env);
+    return c.json({ ok: true, data: items }, 201);
+  });
+
+  app.post('/api/briefs/:id/status', async (c) => {
+    const auth = c.get('auth')!;
+    const json = await c.req.json();
+    const parsed = updateStatusSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ ok: false, error: 'validation_failed', issues: parsed.error.flatten() }, 400);
+    }
+
+    const updated = await updateBriefStatus(c.env, c.req.param('id'), parsed.data.status, auth.normalizedEmail);
+    if (!updated) {
+      return c.json({ ok: false, error: 'not_found' }, 404);
+    }
+
+    const items = await listBriefs(c.env);
+    return c.json({ ok: true, data: items });
+  });
+
+  return app;
+};
+
+const app = createApp();
 
 export default app;
