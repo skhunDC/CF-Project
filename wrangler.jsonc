@@ -1,0 +1,67 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "catch-compete-predict",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-03-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "catch-compete-predict",
+      "database_id": "replace-with-d1-id",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "LeaderboardRoom",
+        "name": "LEADERBOARD_ROOM"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["LeaderboardRoom"]
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "CATCH_EVENTS_QUEUE",
+        "queue": "catch-events"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "catch-events",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5
+      }
+    ]
+  },
+  "r2_buckets": [
+    {
+      "binding": "CATCH_UPLOADS",
+      "bucket_name": "catch-uploads"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "vars": {
+    "APP_NAME": "Catch + Compete + Predict",
+    "COOKIE_NAME": "ccp_session",
+    "PUBLIC_MAP_BLUR_RADIUS_METERS": "1200",
+    "TURNSTILE_SITE_KEY": "replace-with-site-key",
+    "GOOGLE_CLIENT_ID": "replace-with-google-client-id",
+    "APPLE_CLIENT_ID": "replace-with-apple-client-id",
+    "MAGIC_LINK_FROM_EMAIL": "noreply@example.com",
+    "APP_URL": "http://localhost:5173"
+  }
+}
